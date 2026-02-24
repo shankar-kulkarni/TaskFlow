@@ -1,0 +1,78 @@
+services:
+  task-service:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://taskflow:password@postgres:5432/taskflow?schema=public
+      - PORT=3000
+      - JWT_SECRET=${PRODUCT_JWT_SECRET:-dev-secret-key-change-me-32-characters-min}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - taskflow
+
+  ai-gateway:
+    build:
+      context: ../../ai-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "4010:4010"
+    environment:
+      - DATABASE_URL=postgresql://taskflow:password@postgres:5432/taskflow?schema=public
+      - REDIS_URL=redis://redis:6379
+      - AI_PROVIDER=ollama
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - PRODUCT_JWT_SECRET=${PRODUCT_JWT_SECRET:-dev-secret-key-change-me-32-characters-min}
+      - PORT=4010
+    depends_on:
+      - postgres
+      - redis
+      - ollama
+    networks:
+      - taskflow
+
+  postgres:
+    image: ankane/pgvector
+    environment:
+      - POSTGRES_USER=taskflow
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=taskflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskflow -d taskflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taskflow
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - taskflow
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - taskflow
+
+volumes:
+  postgres_data:
+  ollama_data:
+
+networks:
+  taskflow:
+    driver: bridge

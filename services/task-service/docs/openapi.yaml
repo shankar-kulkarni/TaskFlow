@@ -1,0 +1,452 @@
+openapi: 3.1.0
+info:
+  title: TaskFlow Task Service API
+  version: 1.0.0
+  description: REST API for TaskFlow task management
+
+servers:
+  - url: https://api.taskflow.io/v1
+    description: Production server
+
+security:
+  - bearerAuth: []
+
+paths:
+  /tasks:
+    get:
+      summary: List tasks
+      parameters:
+        - name: project_id
+          in: query
+          schema:
+            type: string
+        - name: assigned_to_user
+          in: query
+          schema:
+            type: string
+        - name: assigned_to_group
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [todo, in_progress, in_review, blocked, done, cancelled]
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [critical, high, medium, low, none]
+        - name: due_before
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: sort
+          in: query
+          schema:
+            type: string
+            default: created_at:desc
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 25
+      responses:
+        '200':
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+    post:
+      summary: Create a new task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+      responses:
+        '201':
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+
+  /tasks/{taskId}:
+    get:
+      summary: Get task details
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '404':
+          description: Task not found
+    patch:
+      summary: Update task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskRequest'
+      responses:
+        '200':
+          description: Task updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+    delete:
+      summary: Archive task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Task archived
+
+  /tasks/{taskId}/assignments:
+    put:
+      summary: Replace all assignments
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentRequest'
+      responses:
+        '200':
+          description: Assignments updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentResponse'
+    post:
+      summary: Add assignments
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentRequest'
+      responses:
+        '200':
+          description: Assignments added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentResponse'
+    delete:
+      summary: Remove assignments
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentRequest'
+      responses:
+        '204':
+          description: Assignments removed
+
+  /tasks/{taskId}/assignees:
+    get:
+      summary: Get effective assignees
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Effective assignees
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssigneesResponse'
+
+  /tasks/{taskId}/comments:
+    get:
+      summary: List task comments
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+    post:
+      summary: Add comment
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                body:
+                  type: string
+              required:
+                - body
+      responses:
+        '201':
+          description: Comment added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        projectId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [todo, in_progress, in_review, blocked, done, cancelled]
+        priority:
+          type: string
+          enum: [critical, high, medium, low, none]
+        dueDate:
+          type: string
+          format: date-time
+        estimatedHrs:
+          type: number
+        actualHrs:
+          type: number
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        isArchived:
+          type: boolean
+        customFields:
+          type: object
+
+    CreateTaskRequest:
+      type: object
+      properties:
+        project_id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [todo, in_progress, in_review, blocked, done, cancelled]
+        priority:
+          type: string
+          enum: [critical, high, medium, low, none]
+        due_date:
+          type: string
+          format: date-time
+        estimated_hrs:
+          type: number
+        assign_to:
+          $ref: '#/components/schemas/AssignmentRequest'
+        watcher_ids:
+          type: array
+          items:
+            type: string
+        custom_fields:
+          type: object
+      required:
+        - title
+
+    UpdateTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [todo, in_progress, in_review, blocked, done, cancelled]
+        priority:
+          type: string
+          enum: [critical, high, medium, low, none]
+        due_date:
+          type: string
+          format: date-time
+        estimated_hrs:
+          type: number
+        actual_hrs:
+          type: number
+        custom_fields:
+          type: object
+
+    AssignmentRequest:
+      type: object
+      properties:
+        user_ids:
+          type: array
+          items:
+            type: string
+        group_ids:
+          type: array
+          items:
+            type: string
+
+    AssignmentResponse:
+      type: object
+      properties:
+        task_id:
+          type: string
+        user_assignments:
+          type: array
+          items:
+            type: object
+            properties:
+              user_id:
+                type: string
+              display_name:
+                type: string
+              assigned_at:
+                type: string
+                format: date-time
+        group_assignments:
+          type: array
+          items:
+            type: object
+            properties:
+              group_id:
+                type: string
+              name:
+                type: string
+              member_count:
+                type: integer
+              assigned_at:
+                type: string
+                format: date-time
+        effective_assignee_count:
+          type: integer
+
+    AssigneesResponse:
+      type: object
+      properties:
+        task_id:
+          type: string
+        assignees:
+          type: array
+          items:
+            type: object
+            properties:
+              user_id:
+                type: string
+              display_name:
+                type: string
+              avatar_url:
+                type: string
+              assignment_type:
+                type: string
+                enum: [direct, group, both]
+              via_groups:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    group_id:
+                      type: string
+                    name:
+                      type: string
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+        taskId:
+          type: string
+        authorId:
+          type: string
+        body:
+          type: string
+        isEdited:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

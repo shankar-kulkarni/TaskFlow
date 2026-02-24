@@ -1,0 +1,6 @@
+#Defines:
+#Where business logic lives
+#Service boundaries
+#DB access rules
+#Error handling patterns
+#Prevents AI from putting logic in random places.

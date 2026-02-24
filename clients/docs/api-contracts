@@ -1,0 +1,5 @@
+#Defines:
+#Request/response shapes
+#Auth requirements
+#Error formats
+#Prevents breaking frontend ↔ backend contracts.

@@ -1,0 +1,10 @@
+#GLOBAL AI RULES:
+- Always read /docs before coding
+- UI code must follow ui-spec.md
+- Business logic lives in /services
+- API routes only orchestrate, not implement logic
+- No new patterns without explicit instruction
+- Ask before deviating from established patterns
+- Write tests for all new code  
+- Follow existing code style and conventions
+- Document new code and APIs clearly

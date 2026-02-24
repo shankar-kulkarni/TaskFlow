@@ -1,0 +1,35 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "infrastructure", "infrastructure", "{DFEE68D8-A7D0-1A41-506C-9B74AA9A7B7B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "pulumi", "pulumi", "{65BBC29E-0B5E-8C40-E647-9C7B7B27BFA6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "aws", "aws", "{7389706D-9BA5-05F6-7D39-E1ED1FBC9ECB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "taskflow-aws", "infrastructure\pulumi\aws\taskflow-aws.csproj", "{7C74D1D1-B56D-2986-97F7-7B8280B49DDD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7C74D1D1-B56D-2986-97F7-7B8280B49DDD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7C74D1D1-B56D-2986-97F7-7B8280B49DDD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7C74D1D1-B56D-2986-97F7-7B8280B49DDD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7C74D1D1-B56D-2986-97F7-7B8280B49DDD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{65BBC29E-0B5E-8C40-E647-9C7B7B27BFA6} = {DFEE68D8-A7D0-1A41-506C-9B74AA9A7B7B}
+		{7389706D-9BA5-05F6-7D39-E1ED1FBC9ECB} = {65BBC29E-0B5E-8C40-E647-9C7B7B27BFA6}
+		{7C74D1D1-B56D-2986-97F7-7B8280B49DDD} = {7389706D-9BA5-05F6-7D39-E1ED1FBC9ECB}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {130E3A90-F33D-4C90-927F-C31E364B2302}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,55 @@
+
+Recommended Full-Stack SaaS Structure (AI-Optimized)
+
+/ (project root)
+├── app/                         # Next.js App Router (frontend + server actions)
+│   ├── (auth)/
+│   ├── (dashboard)/
+│   ├── api/                     # Route handlers
+│   └── layout.tsx
+│
+├── components/
+│   ├── ui/                      # shadcn/ui primitives
+│   ├── shared/                  # app-specific reusable components
+│   └── layouts/
+│
+├── services/                    # Business logic (AI, billing, email, etc.)
+│   ├── ai/
+│   │   ├── prompts/
+│   │   │   ├── system.md
+│   │   │   ├── guardrails.md
+│   │   │   └── tasks.md
+│   │   └── ai.service.ts
+│   ├── billing/
+│   ├── auth/
+│   └── email/
+│
+├── lib/                         # Utilities (db, auth helpers)
+│   ├── db.ts
+│   ├── auth.ts
+│   └── env.ts
+│
+├── docs/                        # ⭐ AI SOURCE OF TRUTH (GLOBAL)
+│   ├── product.md
+│   ├── ui-spec.md
+│   ├── frontend-architecture.md
+│   ├── backend-architecture.md
+│   ├── api-contracts.md
+│   └── ai-rules.md
+│
+├── prisma/                      # ORM
+│   └── schema.prisma
+│
+├── middleware.ts
+├── package.json
+├── README.md
+└── .env.example
+
+AI Prompt Placement (Why This Works)
+/services/ai/prompts/
+  system.md        → personality
+  guardrails.md    → safety & refusal
+  tasks.md         → runtime tasks
+AI agents naturally map:
+Prompts → AI service
+Docs → global truth

@@ -1,0 +1,544 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id            String   @id @default(dbgenerated("gen_random_uuid()"))
+  name          String
+  plan          String   @default("Business")
+  timezone      String   @default("UTC")
+  aiQuotaPerDay Int?     @default(500) @map("ai_quota_per_day") // AI requests per day, null=default
+  webPortalUrl  String   @default("http://localhost:5175") @map("web_portal_url")
+  contact_email String?  @map("contact_email")
+  status        String   @default("active")
+  deletedAt     DateTime? @map("deleted_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  workspaces Workspace[]
+  users     User[]
+  groups    Group[]
+  tasks     Task[]
+  auditLogs AuditLog[]
+  preferences TenantPreferences?
+
+  @@map("tenants")
+}
+
+model TenantPreferences {
+  tenantId  String   @id @map("tenant_id")
+  locale    String   @default("en")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_preferences")
+}
+
+model Workspace {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) 
+  tenantId  String   @map("tenant_id") 
+  name      String
+  createdAt DateTime @default(now()) @map("created_at") 
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projects  Project[]
+  groups    Group[]
+  workflows Workflow[]
+
+  @@map("workspaces")
+}
+
+model User {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) 
+  tenantId      String   @map("tenant_id") 
+  email         String   @unique
+  displayName   String   @map("display_name")
+  avatarUrl     String?  @map("avatar_url")
+  role          Role     @default(MEMBER)
+  status        UserStatus @default(ACTIVE)
+  timezone      String   @default("UTC")
+  passwordResetRequired Boolean @default(false) @map("password_reset_required")
+  passwordHash  String?  @map("password_hash")
+  emailVerified Boolean  @default(false) @map("email_verified")
+  mfaEnabled    Boolean  @default(false) @map("mfa_enabled")
+  createdAt     DateTime @default(now()) @map("created_at") 
+  updatedAt     DateTime @updatedAt @map("updated_at") 
+  lastLoginAt   DateTime? @map("last_login_at") 
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdTasks  Task[]   @relation("TaskCreatedBy")
+  assignedTasks TaskUserAssignment[]
+  groupMembers  GroupMember[]
+  watchers      TaskWatcher[]
+  comments      TaskComment[]
+  commentMentions TaskCommentMention[]
+  auditLogs     AuditLog[]
+  ownedProjects Project[] @relation("ProjectOwner")
+  projectMemberships ProjectMember[]
+  createdWorkflows Workflow[]
+  workflowRuns WorkflowRun[] @relation("TriggerUser")
+  createdDependencies TaskDependency[] @relation("TaskDependencyCreator")
+  authSessions  AuthSession[]
+  emailVerification EmailVerification?
+  passwordResetToken PasswordResetToken?
+  notifications Notification[]
+  notificationsSent Notification[] @relation("NotificationActor")
+  notificationPreferences NotificationPreferences?
+  emailLogs     EmailLog[]
+
+  @@map("users")
+}
+
+model Group {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) 
+  tenantId    String   @map("tenant_id") 
+  workspaceId String?  @map("workspace_id") 
+  name        String
+  description String?
+  color       String?  // hex colour
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdBy   String   @map("created_by") 
+  createdAt   DateTime @default(now()) @map("created_at") 
+  updatedAt   DateTime @updatedAt @map("updated_at") 
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+  members     GroupMember[]
+  taskAssignments TaskGroupAssignment[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  groupId   String @map("group_id") 
+  userId    String @map("user_id") 
+  role      GroupRole @default(MEMBER)
+  addedBy   String @map("added_by") 
+  addedAt   DateTime @default(now()) @map("added_at") 
+
+  group     Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+  @@map("group_members")
+}
+
+model Project {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) 
+  workspaceId  String   @map("workspace_id") 
+  name         String
+  description  String?
+  color        String?  // hex
+  icon         String?
+  status       ProjectStatus @default(ACTIVE)
+  ownerId      String?  @map("owner_id") 
+  startDate    DateTime? @map("start_date") @db.Date
+  endDate      DateTime? @map("end_date") @db.Date
+  createdAt    DateTime @default(now()) @map("created_at") 
+  updatedAt    DateTime @updatedAt @map("updated_at") 
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner        User? @relation("ProjectOwner", fields: [ownerId], references: [id])
+  tasks        Task[]
+  projectMembers ProjectMember[]
+  workflows     Workflow[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  projectId String @map("project_id")
+  userId    String @map("user_id")
+  role      ProjectRole @default(EDITOR)
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@map("project_members")
+}
+
+model Task {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) 
+  tenantId      String   @map("tenant_id") 
+  projectId     String?  @map("project_id") 
+  parentTaskId  String?  @map("parent_task_id") 
+  title         String   @db.VarChar(500)
+  description   String?  @db.Text
+  status        TaskStatus @default(TODO)
+  priority      Priority @default(NONE)
+  dueDate       DateTime? @map("due_date") 
+  startDate     DateTime? @map("start_date") 
+  estimatedHrs  Decimal? @map("estimated_hrs") @db.Decimal(6, 2)
+  actualHrs     Decimal? @map("actual_hrs") @db.Decimal(6, 2)
+  createdBy     String   @map("created_by") 
+  createdAt     DateTime @default(now()) @map("created_at") 
+  updatedAt     DateTime @updatedAt @map("updated_at") 
+  completedAt   DateTime? @map("completed_at") 
+  isArchived    Boolean  @default(false) @map("is_archived")
+  customFields  Json     @default("{}") @map("custom_fields")
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project       Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentTask    Task?    @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
+  subtasks      Task[]   @relation("TaskHierarchy")
+  creator       User     @relation("TaskCreatedBy", fields: [createdBy], references: [id])
+  userAssignments TaskUserAssignment[]
+  groupAssignments TaskGroupAssignment[]
+  watchers      TaskWatcher[]
+  comments      TaskComment[]
+  notifications Notification[]
+  dependencies  TaskDependency[] @relation("TaskDependsOn")
+  dependents    TaskDependency[] @relation("TaskDependedOn")
+  workflowRuns  WorkflowRun[]
+
+  @@map("tasks")
+}
+
+model TaskUserAssignment {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) 
+  taskId      String   @map("task_id") 
+  userId      String   @map("user_id") 
+  assignedBy  String?  @map("assigned_by") 
+  assignedAt  DateTime @default(now()) @map("assigned_at") 
+
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@map("task_user_assignments")
+}
+
+model TaskGroupAssignment {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) 
+  taskId      String   @map("task_id") 
+  groupId     String   @map("group_id") 
+  assignedBy  String?  @map("assigned_by") 
+  assignedAt  DateTime @default(now()) @map("assigned_at") 
+
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, groupId])
+  @@map("task_group_assignments")
+}
+
+model TaskWatcher {
+  taskId    String @map("task_id") 
+  userId    String @map("user_id") 
+  addedAt   DateTime @default(now()) @map("added_at") 
+  notificationType String @default("all") @map("notification_type")
+  unsubscribedAt DateTime? @map("unsubscribed_at")
+
+  task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@map("task_watchers")
+}
+
+model TaskComment {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) 
+  taskId      String   @map("task_id") 
+  authorId    String   @map("author_id") 
+  body        String   @db.Text
+  isEdited    Boolean  @default(false) @map("is_edited")
+  parentCommentId String? @map("parent_comment_id")
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime @default(now()) @map("created_at") 
+  updatedAt   DateTime @updatedAt @map("updated_at") 
+
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author      User     @relation(fields: [authorId], references: [id])
+  parent      TaskComment? @relation("TaskCommentThread", fields: [parentCommentId], references: [id])
+  replies     TaskComment[] @relation("TaskCommentThread")
+  mentions    TaskCommentMention[]
+
+  @@map("task_comments")
+}
+
+model TaskDependency {
+  id              String @id @default(dbgenerated("gen_random_uuid()"))
+  taskId          String @map("task_id")
+  dependsOnId     String @map("depends_on_id")
+  dependencyType  DependencyType @default(FINISH_TO_START) @map("dependency_type")
+  lagDays         Int @default(0) @map("lag_days")
+  createdBy       String? @map("created_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  task            Task @relation("TaskDependsOn", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOn       Task @relation("TaskDependedOn", fields: [dependsOnId], references: [id], onDelete: Cascade)
+  creator         User? @relation("TaskDependencyCreator", fields: [createdBy], references: [id])
+
+  @@unique([taskId, dependsOnId])
+  @@map("task_dependencies")
+}
+
+model Workflow {
+  id            String @id @default(dbgenerated("gen_random_uuid()"))
+  workspaceId   String @map("workspace_id")
+  projectId     String? @map("project_id")
+  name          String
+  description   String?
+  isActive      Boolean @default(true) @map("is_active")
+  triggerType   TriggerType @map("trigger_type")
+  triggerConfig Json @default("{}") @map("trigger_config")
+  createdBy     String? @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  runCount      Int @default(0) @map("run_count")
+  lastRunAt     DateTime? @map("last_run_at")
+
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project       Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator       User? @relation(fields: [createdBy], references: [id])
+  actions       WorkflowAction[]
+  runs          WorkflowRun[]
+
+  @@map("workflows")
+}
+
+model WorkflowAction {
+  id            String @id @default(dbgenerated("gen_random_uuid()"))
+  workflowId    String @map("workflow_id")
+  actionOrder   Int @map("action_order")
+  actionType    ActionType @map("action_type")
+  actionConfig  Json @default("{}") @map("action_config")
+
+  workflow      Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@map("workflow_actions")
+}
+
+model WorkflowRun {
+  id           String @id @default(dbgenerated("gen_random_uuid()"))
+  workflowId   String @map("workflow_id")
+  taskId       String? @map("task_id")
+  triggeredBy  String? @map("triggered_by")
+  status       RunStatus
+  errorMsg     String? @map("error_msg")
+  startedAt    DateTime @default(now()) @map("started_at")
+  finishedAt   DateTime? @map("finished_at")
+
+  workflow     Workflow @relation(fields: [workflowId], references: [id])
+  task         Task? @relation(fields: [taskId], references: [id])
+  triggerUser  User? @relation("TriggerUser", fields: [triggeredBy], references: [id])
+
+  @@map("workflow_runs")
+}
+
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) 
+  tenantId    String   @map("tenant_id") 
+  actorId     String?  @map("actor_id") 
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id") 
+  action      String
+  oldValue    Json?    @map("old_value")
+  newValue    Json?    @map("new_value")
+  ipAddress   String?  @map("ip_address") @db.Inet
+  createdAt   DateTime @default(now()) @map("created_at") 
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor       User?    @relation(fields: [actorId], references: [id])
+
+  @@map("audit_log")
+}
+
+model AuthSession {
+  id           String   @id @default(dbgenerated("gen_random_uuid()"))
+  userId       String   @map("user_id")
+  refreshToken String   @unique @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  userAgent    String?  @map("user_agent")
+  ipAddress    String?  @map("ip_address") @db.Inet
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_sessions")
+}
+
+model EmailVerification {
+  token      String   @id
+  userId     String   @unique @map("user_id")
+  email      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verifications")
+}
+
+model PasswordResetToken {
+  token     String   @id
+  userId    String   @unique @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("gen_random_uuid()"))
+  userId    String   @map("user_id")
+  actorId   String?  @map("actor_id")
+  taskId    String?  @map("task_id")
+  type      String
+  data      Json?    @map("data")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actor     User?    @relation("NotificationActor", fields: [actorId], references: [id])
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model NotificationPreferences {
+  userId            String   @id @map("user_id")
+  emailOnAssignment Boolean  @default(true) @map("email_on_assignment")
+  emailOnMention    Boolean  @default(true) @map("email_on_mention")
+  emailOnComment    Boolean  @default(true) @map("email_on_comment")
+  emailOnUpdate     Boolean  @default(false) @map("email_on_update")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model EmailLog {
+  id           String   @id @default(dbgenerated("gen_random_uuid()"))
+  userId       String?  @map("user_id")
+  toEmail      String   @map("to_email")
+  subject      String
+  templateType String   @map("template_type")
+  status       String
+  errorMessage String?  @map("error_message")
+  sentAt       DateTime? @map("sent_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("email_log")
+}
+
+model TaskCommentMention {
+  commentId String @map("comment_id")
+  userId    String @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  comment   TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
+  @@map("task_comment_mentions")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+  GUEST
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+
+enum AdminAuditResult {
+  SUCCESS
+  FAILED
+  DENIED
+}
+
+enum GroupRole {
+  OWNER
+  MEMBER
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum ProjectRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  NONE
+}
+
+enum DependencyType {
+  FINISH_TO_START
+  START_TO_START
+  FINISH_TO_FINISH
+}
+
+enum TriggerType {
+  TASK_CREATED
+  TASK_STATUS_CHANGED
+  TASK_ASSIGNED
+  TASK_DUE_DATE_APPROACHING
+  TASK_OVERDUE
+  COMMENT_ADDED
+  TASK_PRIORITY_CHANGED
+  GROUP_MEMBER_ADDED
+}
+
+enum ActionType {
+  CHANGE_STATUS
+  CHANGE_PRIORITY
+  ASSIGN_USER
+  ASSIGN_GROUP
+  UNASSIGN_USER
+  SEND_NOTIFICATION
+  POST_COMMENT
+  CREATE_SUBTASK
+  SEND_WEBHOOK
+  ADD_TAG
+  SET_DUE_DATE
+}
+
+enum RunStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+}
